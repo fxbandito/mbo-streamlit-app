@@ -5,7 +5,7 @@ import os
 import json
 # --- KONFIGURÁCIÓ ---
 # A mappád ID-ja (amit a címsorból másolsz ki)
-ROOT_FOLDER_ID = "IDE_MASOLD_A_MAPPA_ID_T"
+ROOT_FOLDER_ID = "1XZ4ZkFzVP2eHouy6CweJI6Hx1fGAF51m"
 # --- PAGE SETUP ---
 st.set_page_config(
     page_title="MBO Reports",
