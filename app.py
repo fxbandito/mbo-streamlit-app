@@ -126,7 +126,15 @@ def main():
             
     # Aktuális mappa tartalmának lekérése
     current_id = st.session_state.current_folder_id
+    
+    # DEBUG: Kiírjuk az ID-t, hogy lássuk, jót keres-e
+    # st.write(f"Keresés ebben a mappában: {current_id}") 
+    
     folders, reports = get_children(current_id)
+    
+    if not folders and not reports:
+        st.warning(f"Ez a mappa üres, vagy nem sikerült elérni a Drive-ot. (Mappa ID: {current_id})")
+        st.info("Ellenőrizd: 1. A 'secrets' beállítást. 2. Hogy a Service Account hozzá van-e adva ehhez a mappához a Drive-on.")
     
     # Mappák megjelenítése
     if folders:
