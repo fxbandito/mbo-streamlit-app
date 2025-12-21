@@ -1,142 +1,101 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 import os
-import json
-# --- KONFIGURÁCIÓ ---
-# A mappád ID-ja (amit a címsorból másolsz ki)
-ROOT_FOLDER_ID = "1XZ4ZkFzVP2eHouy6CweJI6Hx1fGAF51m"
-# --- PAGE SETUP ---
-st.set_page_config(
-    page_title="MBO Reports",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-# Egyedi CSS a stílushoz (Sötét téma + Glassmorphism)
+# --- 1. KONFIGURÁCIÓ (CSAK EZT SZERKESZD!) ---
+ROOT_FOLDER_ID = "1XZ4ZkFzVP2eHouy6CweJI6Hx1fGAF51m"  # <--- ITT CSERÉLD KI A SAJÁT DRIVE MAPPA ID-RA!
+# --- 2. PAGE SETUP ---
+st.set_page_config(page_title="MBO Reports", page_icon="📊", layout="wide")
+# Egyedi CSS (Sötét Design)
 st.markdown("""
 <style>
-    /* Háttér */
-    .stApp {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-    }
-    
-    /* Címsorok */
-    h1, h2, h3 {
-        color: #fff !important;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    }
-    
-    /* Kártyák (Expander és egyéb dobozok) */
-    .streamlit-expanderHeader, .stButton>button {
-        background: rgba(255, 255, 255, 0.05) !important;
+    .stApp { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); color: #e4e4e4; }
+    h1, h2, h3, p, div { color: #e4e4e4 !important; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+    .stButton>button, .streamlit-expanderHeader { 
+        background: rgba(255, 255, 255, 0.05) !important; 
         backdrop-filter: blur(10px);
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        color: #e4e4e4 !important;
-        border-radius: 10px !important;
-    }
-    
-    .stButton>button:hover {
-        background: rgba(255, 255, 255, 0.15) !important;
-        border-color: rgba(52, 152, 219, 0.5) !important;
-    }
-    
-    /* Szövegszín */
-    .stMarkdown, p, div {
-        color: #e4e4e4 !important;
+        color: #fff !important;
     }
 </style>
 """, unsafe_allow_html=True)
-# --- GOOGLE DRIVE AUTH ---
+# --- 3. GOOGLE DRIVE KAPCSOLAT (CLOUD) ---
 @st.cache_resource
 def init_drive_service():
-    """Hitelesítés a Streamlit Secrets-ből származó adatokkal."""
+    # Ellenőrizzük, hogy léteznek-e a titkos kulcsok a szerveren
     if "gcp_service_account" not in st.secrets:
-        st.error("Hiányzik a 'gcp_service_account' beállítás a Streamlit Secrets-ből!")
+        st.error("HIBA: Hiányoznak a titkos kulcsok (Secrets)!")
+        st.info("Ez a kód csak a Streamlit Cloud-on fut helyesen, ha beállítottad a 'gcp_service_account' részt a Secrets menüben.")
+        st.stop() # Megállítjuk a futást
         return None
     
-    # A secrets-ből dictionary-ként olvassuk ki
-    creds_dict = dict(st.secrets["gcp_service_account"])
-    
-    creds = service_account.Credentials.from_service_account_info(
-        creds_dict,
-        scopes=['https://www.googleapis.com/auth/drive.readonly']
-    )
-    return build('drive', 'v3', credentials=creds)
-import streamlit.components.v1 as components
-# --- DATA FETCHING ---
+    try:
+        creds_dict = dict(st.secrets["gcp_service_account"])
+        creds = service_account.Credentials.from_service_account_info(
+            creds_dict,
+            scopes=['https://www.googleapis.com/auth/drive.readonly']
+        )
+        return build('drive', 'v3', credentials=creds)
+    except Exception as e:
+        st.error(f"Hiba a hitelesítés során: {e}")
+        return None
+# --- 4. ADATOK LEKÉRÉSE ---
 @st.cache_data(ttl=300)
 def get_children(folder_id):
     service = init_drive_service()
     if not service: return [], []
     
-    query = f"'{folder_id}' in parents and trashed=false"
-    results = service.files().list(
-        q=query,
-        fields="files(id, name, mimeType, webViewLink, iconLink)",
-        orderBy="name"
-    ).execute()
-    
-    files = results.get('files', [])
-    
-    folders_list = [f for f in files if f['mimeType'] == 'application/vnd.google-apps.folder']
-    reports_list = [f for f in files if f['mimeType'] == 'text/html' or f['name'].endswith('.html')]
-    
-    return folders_list, reports_list
+    try:
+        query = f"'{folder_id}' in parents and trashed=false"
+        results = service.files().list(
+            q=query, fields="files(id, name, mimeType, webViewLink)", orderBy="name"
+        ).execute()
+        files = results.get('files', [])
+        
+        folders = [f for f in files if f['mimeType'] == 'application/vnd.google-apps.folder']
+        reports = [f for f in files if f['mimeType'] == 'text/html' or f['name'].endswith('.html')]
+        return folders, reports
+    except Exception as e:
+        st.error(f"Hiba a mappa olvasásakor: {e}")
+        st.warning(f"Ellenőrizd, hogy a megadott MAPPA ID ({folder_id}) helyes-e, és a Service Account hozzá van-e adva!")
+        return [], []
 def get_file_content(file_id):
-    """HTML tartalom letöltése a Drive-ról"""
     service = init_drive_service()
     try:
-        # get_media letölti a fájl tartalmát
         content = service.files().get_media(fileId=file_id).execute()
         return content.decode('utf-8')
     except Exception as e:
-        return f"<h1>Hiba a fájl betöltésekor: {e}</h1>"
-# --- UI LOGIC ---
+        return f"<h1>Hiba a fájl megnyitásakor: {e}</h1>"
+# --- 5. FŐPROGRAM (UI) ---
 def main():
     st.title("📊 MBO Trading Reports")
-    
-    # Állapotkezelés a navigációhoz
     if 'current_folder_id' not in st.session_state:
         st.session_state.current_folder_id = ROOT_FOLDER_ID
         st.session_state.folder_stack = [("Home", ROOT_FOLDER_ID)]
-    
-    # Ha van kiválasztott jelentés (amit megtekintünk)
-    if 'selected_report' in st.session_state and st.session_state.selected_report:
-        report_id = st.session_state.selected_report
-        
-        # Gomb a visszalépéshez a listához
+    # Ha riportot nézünk
+    if 'selected_report' in st.session_state:
         if st.button("⬅️ Vissza a listához"):
             del st.session_state.selected_report
             st.rerun()
-            
-        with st.spinner('Jelentés betöltése...'):
-            html_content = get_file_content(report_id)
-            # HTML megjelenítése Iframe-ben
-            components.html(html_content, height=1000, scrolling=True)
-            
-        return # Kilépés, hogy ne rajzolja ki a mappákat alá
-    # --- LISTA NÉZET (Ha nincs jelentés megnyitva) ---
-    # Navigációs sáv (Vissza a szülő mappába)
+        html_content = get_file_content(st.session_state.selected_report)
+        components.html(html_content, height=1000, scrolling=True)
+        return
+    # LISTA NÉZET
     if len(st.session_state.folder_stack) > 1:
-        if st.button("⬅️ Vissza (fel)", key="back_nav"):
+        if st.button("⬅️ Vissza"):
             st.session_state.folder_stack.pop()
             st.session_state.current_folder_id = st.session_state.folder_stack[-1][1]
             st.rerun()
-            
-    # Aktuális mappa tartalmának lekérése
     current_id = st.session_state.current_folder_id
-    
-    # DEBUG: Kiírjuk az ID-t, hogy lássuk, jót keres-e
-    # st.write(f"Keresés ebben a mappában: {current_id}") 
-    
     folders, reports = get_children(current_id)
-    
+    # Üres mappa ellenőrzés
     if not folders and not reports:
-        st.warning(f"Ez a mappa üres, vagy nem sikerült elérni a Drive-ot. (Mappa ID: {current_id})")
-        st.info("Ellenőrizd: 1. A 'secrets' beállítást. 2. Hogy a Service Account hozzá van-e adva ehhez a mappához a Drive-on.")
-    
-    # Mappák megjelenítése
+        if current_id == "IDE_MASOLD_A_MAPPA_ID_T":
+             st.warning("⚠️ FIGYELEM: Még nem állítottad be a 'ROOT_FOLDER_ID'-t a kódban!")
+        else:
+             st.info("Ez a mappa üres.")
+    # Kirajzolás
     if folders:
         st.subheader("Mappák")
         cols = st.columns(3)
@@ -146,16 +105,15 @@ def main():
                     st.session_state.current_folder_id = folder['id']
                     st.session_state.folder_stack.append((folder['name'], folder['id']))
                     st.rerun()
-    # Riportok megjelenítése
+                    
     if reports:
         st.subheader("Jelentések")
         for report in reports:
-            # Egy sorban a név és a gombok
             col1, col2 = st.columns([0.8, 0.2])
-            with col1:
-                st.write(f"📄 **{report['name']}**")
+            with col1: st.write(f"📄 **{report['name']}**")
             with col2:
-                # Megtekintés gomb
                 if st.button("Megnyitás", key=f"view_{report['id']}"):
                     st.session_state.selected_report = report['id']
                     st.rerun()
+if __name__ == "__main__":
+    main()
