@@ -115,18 +115,18 @@ def main():
                 if st.button("Megnyitás", key=f"view_{report['id']}"):
                     st.session_state.selected_report = report['id']
                     st.rerun()
-st.divider()  # Választóvonal (opcionális)
-# GOOGLE SHEET BEÁGYAZÁS (Csak olvasható)
-st.subheader("📈 Statisztikák")
-# Iframe beágyazása
-components.html(f"""
-<iframe 
+    st.divider()  # Választóvonal (opcionális)
+    # GOOGLE SHEET BEÁGYAZÁS (Csak olvasható)
+    st.subheader("📈 Statisztikák")
+    # Iframe beágyazása
+    components.html(f"""
+    <iframe 
     src="https://docs.google.com/spreadsheets/d/e/2PACX-1vR0OF5cHgusupJvTu0hfTRKvJ5CoguBvKurxHOF6GPCRcr6V5HMoOVwH2Erk1mFgiLWib32fRw6gq0M/pubhtml?widget=true&amp;headers=false"
     width="100%" 
     height="600" 
     frameborder="0" 
     style="border-radius: 10px; background: rgba(255,255,255,0.05);">
-</iframe>
-""", height=620)
+    </iframe>
+    """, height=620)
 if __name__ == "__main__":
     main()
