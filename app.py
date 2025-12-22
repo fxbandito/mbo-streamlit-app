@@ -115,6 +115,7 @@ def main():
                 if st.button("Megnyitás", key=f"view_{report['id']}"):
                     st.session_state.selected_report = report['id']
                     st.rerun()
+st.divider()  # Választóvonal (opcionális)
 # GOOGLE SHEET BEÁGYAZÁS (Csak olvasható)
 st.subheader("📈 Statisztikák")
 # Iframe beágyazása
