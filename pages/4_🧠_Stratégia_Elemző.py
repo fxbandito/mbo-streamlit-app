@@ -8,7 +8,7 @@ st.info("Kattints a nyíl ikonra a képek sarkában a nagyításhoz!")
 # Feltételezzük, hogy létrehozol egy 'images' mappát a repóban és feltöltöd a képeket.
 # Ha nincs kép, csak helykitöltőt mutat.
 cols = st.columns(3)
-image_files = ["1.jpg", "2.jpg", "3.jpg", "4.jpg", "5.jpg", "6.jpg"] # Példa nevek
+image_files = ["01. Data Loading.png", "02. Analysis.png", "03. Results.png", "04. Comparison.png", "05. Inspection.png", "06. Performance.png"] # Példa nevek
 for i, img_name in enumerate(image_files):
     path = f"images/{img_name}"
     with cols[i % 3]:
